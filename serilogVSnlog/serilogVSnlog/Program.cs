@@ -23,8 +23,15 @@ namespace serilogVSnlog
             //serilogLogger.Information("This is an information log");
 
             // json configs
-            Logger nlogLogger = InitializeNlog_V2();
-            Serilog.ILogger serilogLogger = InitializeSerilog_V2();
+            //Logger nlogLogger = InitializeNlog_V2();
+            //Serilog.ILogger serilogLogger = InitializeSerilog_V2();
+
+            //nlogLogger.Info("This is an information log");
+            //serilogLogger.Information("This is an information log");
+
+            // C# configs
+            Logger nlogLogger = InitializeNlog_V3();
+            Serilog.ILogger serilogLogger = InitializeSerilog_V3();
 
             nlogLogger.Info("This is an information log");
             serilogLogger.Information("This is an information log");
@@ -75,6 +82,40 @@ namespace serilogVSnlog
                .Build();
 
             LogManager.Configuration = new NLogLoggingConfiguration(config.GetSection("NLog"));
+
+            Logger nlogLogger = NLog.Web.NLogBuilder.ConfigureNLog(LogManager.Configuration).GetCurrentClassLogger();
+
+            return nlogLogger;
+        }
+
+        private static Serilog.ILogger InitializeSerilog_V3()
+        {
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Verbose()
+                .WriteTo.Console()
+                .WriteTo.File("logs\\Serilog..log", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+
+            // self logging setting
+            Serilog.Debugging.SelfLog.Enable(msg => File.AppendAllText("logs\\serilog_internallog.log", msg, Encoding.UTF8));
+
+            return Log.Logger;
+        }
+
+        private static Logger InitializeNlog_V3()
+        {
+            var config = new NLog.Config.LoggingConfiguration();
+
+            // Targets where to log to: File and Console
+            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = "${basedir}/logs/Nlog.${shortdate}.log", Layout = "${longdate} ${logger} ${uppercase:${level}} ${message}", Encoding = Encoding.UTF8 };
+            var logconsole = new NLog.Targets.ConsoleTarget("logconsole") { Layout = "${longdate} ${logger} ${uppercase:${level}} ${message}" };
+
+            // Rules for mapping loggers to targets            
+            config.AddRule(LogLevel.Trace, LogLevel.Fatal, logconsole);
+            config.AddRule(LogLevel.Trace, LogLevel.Fatal, logfile);
+
+            // Apply config           
+            NLog.LogManager.Configuration = config;
 
             Logger nlogLogger = NLog.Web.NLogBuilder.ConfigureNLog(LogManager.Configuration).GetCurrentClassLogger();
 
