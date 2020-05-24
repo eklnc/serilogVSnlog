@@ -3,8 +3,12 @@ using NLog;
 using NLog.Extensions.Logging;
 using Serilog;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace serilogVSnlog
 {
@@ -12,9 +16,11 @@ namespace serilogVSnlog
     {
         static void Main(string[] args)
         {
-            // xml configs
+            #region XML Configs
+
             //Logger nlogLogger = InitializeNlog();
             //Serilog.ILogger serilogLogger = InitializeSerilog();
+
             //nlogLogger.Info("This is an information log");
             //Console.WriteLine();
             //Console.WriteLine();
@@ -22,19 +28,99 @@ namespace serilogVSnlog
             //Console.WriteLine("SERILOG PART");
             //serilogLogger.Information("This is an information log");
 
-            // json configs
+            #endregion
+
+            #region JSON Configs
+
             //Logger nlogLogger = InitializeNlog_V2();
             //Serilog.ILogger serilogLogger = InitializeSerilog_V2();
 
             //nlogLogger.Info("This is an information log");
             //serilogLogger.Information("This is an information log");
 
-            // C# configs
-            Logger nlogLogger = InitializeNlog_V3();
-            Serilog.ILogger serilogLogger = InitializeSerilog_V3();
+            #endregion
 
-            nlogLogger.Info("This is an information log");
-            serilogLogger.Information("This is an information log");
+            #region C# Configs
+
+            //Logger nlogLogger = InitializeNlog_V3();
+            //Serilog.ILogger serilogLogger = InitializeSerilog_V3();
+
+            //nlogLogger.Info("This is an information log");
+            //serilogLogger.Information("This is an information log");
+
+            #endregion
+
+            #region Time Phase
+
+            //Serilog.ILogger serilogLogger = InitializeSerilog_V2();
+
+            //var sw = Stopwatch.StartNew();
+            //var serilogLogCount = 0;
+            //while (true)
+            //{
+            //    if ((sw.ElapsedMilliseconds / 1000 / 60) > 2)
+            //    {
+            //        break;
+            //    }
+
+            //    serilogLogger.Information("This is an information log");
+            //    serilogLogCount++;
+            //}
+
+            //Logger nlogLogger = InitializeNlog_V2();
+
+            //sw = Stopwatch.StartNew();
+            //var nlogLogCount = 0;
+            //while (true)
+            //{
+            //    if ((sw.ElapsedMilliseconds / 1000 / 60) > 2)
+            //    {
+            //        break;
+            //    }
+
+            //    nlogLogger.Info("This is an information log");
+            //    nlogLogCount++;
+            //}
+
+            //Console.WriteLine($"Serilog total log count in two minutes: {serilogLogCount}");
+            //Console.WriteLine($"Nlog total log count in two minutes: {nlogLogCount}");
+
+            #endregion
+
+            #region Missing Count Phase
+
+            var maxLogCount = 1000000;
+            var logCountList = new List<int>();
+            while (logCountList.Count < maxLogCount)
+            {
+                logCountList.Add(1);
+            }
+
+            var serilogTask = Task.Run(() => 
+            {
+                Serilog.ILogger serilogLogger = InitializeSerilog_V4();
+
+                foreach (var log in logCountList)
+                {
+                    serilogLogger.Information("This is an information log");
+                }
+            });
+
+            /*******************************/
+            
+            var nlogTask = Task.Run(()=> 
+            {
+                Logger nlogLogger = InitializeNlog_V4();
+
+                foreach (var log in logCountList)
+                {
+                    nlogLogger.Info("This is an information log");
+                }
+            });
+
+            Task.WaitAll(serilogTask, nlogTask);
+
+            #endregion
 
             Console.ReadKey();
         }
@@ -97,7 +183,7 @@ namespace serilogVSnlog
                 .CreateLogger();
 
             // self logging setting
-            Serilog.Debugging.SelfLog.Enable(msg => File.AppendAllText("logs\\serilog_internallog.log", msg, Encoding.UTF8));
+            Serilog.Debugging.SelfLog.Enable(msg => File.AppendAllText("logs\\serilog_internallog2.log", msg, Encoding.UTF8));
 
             return Log.Logger;
         }
@@ -115,7 +201,36 @@ namespace serilogVSnlog
             config.AddRule(LogLevel.Trace, LogLevel.Fatal, logfile);
 
             // Apply config           
-            NLog.LogManager.Configuration = config;
+            LogManager.Configuration = config;
+
+            Logger nlogLogger = NLog.Web.NLogBuilder.ConfigureNLog(LogManager.Configuration).GetCurrentClassLogger();
+
+            return nlogLogger;
+        }
+
+        private static Serilog.ILogger InitializeSerilog_V4()
+        {
+            IConfiguration config = new ConfigurationBuilder()
+              .SetBasePath(Directory.GetCurrentDirectory())
+              .AddJsonFile("appsettings_async.json", optional: false, reloadOnChange: true)
+              .Build();
+
+            Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(config).CreateLogger();
+
+            // self logging setting
+            Serilog.Debugging.SelfLog.Enable(msg => File.AppendAllText("logs\\serilog_internallog.log", msg, Encoding.UTF8));
+
+            return Log.Logger;
+        }
+
+        private static Logger InitializeNlog_V4()
+        {
+            IConfiguration config = new ConfigurationBuilder()
+               .SetBasePath(Directory.GetCurrentDirectory())
+               .AddJsonFile("appsettings_async.json", optional: false, reloadOnChange: true)
+               .Build();
+
+            LogManager.Configuration = new NLogLoggingConfiguration(config.GetSection("NLog"));
 
             Logger nlogLogger = NLog.Web.NLogBuilder.ConfigureNLog(LogManager.Configuration).GetCurrentClassLogger();
 
