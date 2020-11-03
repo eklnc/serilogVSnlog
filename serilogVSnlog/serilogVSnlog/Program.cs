@@ -96,32 +96,45 @@ namespace serilogVSnlog
                 logCountList.Add(1);
             }
 
-            var serilogTask = Task.Run(() => 
+            var serilogTask = Task.Run(() =>
             {
+                var sw = Stopwatch.StartNew();
+
                 Serilog.ILogger serilogLogger = InitializeSerilog_V4();
 
                 foreach (var log in logCountList)
                 {
                     serilogLogger.Information("This is an information log");
                 }
+
+                sw.Stop();
+
+                Console.WriteLine($"{sw.ElapsedMilliseconds / 1000} second");
             });
 
             /*******************************/
-            
-            var nlogTask = Task.Run(()=> 
+
+            var nlogTask = Task.Run(() =>
             {
+                var sw = Stopwatch.StartNew();
+
                 Logger nlogLogger = InitializeNlog_V4();
 
                 foreach (var log in logCountList)
                 {
                     nlogLogger.Info("This is an information log");
                 }
+
+                sw.Stop();
+
+                Console.WriteLine($"{sw.ElapsedMilliseconds / 1000} second");
             });
 
             Task.WaitAll(serilogTask, nlogTask);
 
             #endregion
 
+            Console.WriteLine("Program has finished. Press any key...");
             Console.ReadKey();
         }
 
@@ -210,17 +223,12 @@ namespace serilogVSnlog
 
         private static Serilog.ILogger InitializeSerilog_V4()
         {
-            IConfiguration config = new ConfigurationBuilder()
-              .SetBasePath(Directory.GetCurrentDirectory())
-              .AddJsonFile("appsettings_async.json", optional: false, reloadOnChange: true)
-              .Build();
+            Serilog.ILogger logger = new LoggerConfiguration()
+              .MinimumLevel.Verbose()
+              .WriteTo.Async(a => a.File("logs\\Serilog..log", rollingInterval: RollingInterval.Day), blockWhenFull: true)
+              .CreateLogger();
 
-            Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(config).CreateLogger();
-
-            // self logging setting
-            Serilog.Debugging.SelfLog.Enable(msg => File.AppendAllText("logs\\serilog_internallog.log", msg, Encoding.UTF8));
-
-            return Log.Logger;
+            return logger;
         }
 
         private static Logger InitializeNlog_V4()
